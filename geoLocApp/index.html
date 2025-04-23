@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Location Tracker - Free Version</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+
+
+
+
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <input id="name" placeholder="Enter your name" />
+    <button onclick="sendLocation()">My Current Location</button>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        let map;
+        let markersLayer = L.layerGroup();
+        let markerCluster;
+
+        async function sendLocation() {
+            console.log("Inside sendLocation function")
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const name = document.getElementById('name').value;
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    console.log("Name :", name)
+                    console.log("Latitude :", latitude)
+                    console.log("Longitude :", longitude)
+
+                    const response = await fetch('http://localhost:3000/api/setlocation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, latitude, longitude }),
+                    });
+
+                    console.log("Response of setlocation api :", await response.json())
+                    alert('Location saved!');
+                    loadMap();
+                });
+            } else {
+                alert('Geolocation is not supported by your browser.');
+            }
+        }
+
+
+        async function loadMap() {
+            try {
+                const res = await fetch('http://localhost:3000/api/getlocation');
+                const response = await res.json();
+                const users = response.users;
+
+                if (!Array.isArray(users)) {
+                    console.error('Invalid users data:', users);
+                    return;
+                }
+
+                if (!map) {
+                    map = L.map('map').setView([28.457523, 77.026344], 5);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }).addTo(map);
+                }
+
+                if (markerCluster) {
+                    markerCluster.clearLayers();
+                } else {
+                    markerCluster = L.markerClusterGroup();
+                    map.addLayer(markerCluster);
+                }
+
+                users.forEach(user => {
+                    const marker = L.marker([user.latitude, user.longitude]);
+                    marker.bindPopup(`<b>${user.name}</b>`);
+                    markerCluster.addLayer(marker);
+                });
+
+            } catch (err) {
+                console.error('Error loading map data:', err);
+            }
+        }
+
+        window.onload = loadMap;
+    </script>
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+</body>
+
+</html>
